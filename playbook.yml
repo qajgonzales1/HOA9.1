@@ -1,0 +1,56 @@
+- hosts: all
+  become: true
+  pre_tasks:
+
+  - name: Dpkg fixing in ubuntu servers
+    shell: |
+      dpkg --configure -a
+    when: ansible_distribution == "Ubuntu"
+
+  - name: Updating Ubuntu
+    apt:
+      update_cache: yes
+    when: ansible_distribution == "Ubuntu"
+
+  - name: Installing openssl
+    apt: 
+      name: openssl
+ 
+  - name: Creating folder for CA
+    file: 
+      path: "/{{ item }}"
+      state: directory  
+    with_items:
+      - ca
+      - ca/certs
+      - ca/newcerts
+      - ca/private
+
+  - name: Creating index.txt
+    shell: touch /ca/index.txt
+
+  - name: Duplicating openssl.cnf
+    copy: 
+      src: /etc/ssl/openssl.cnf
+      dest: /ca/openssl.ca.cnf
+
+  - name: Generating private key
+    community.crypto.openssl_privatekey:
+      path: /ca/private/ca.key
+      size: 2048
+      type: RSA
+
+  - name: Generating certificate signing request
+    openssl_certificate:
+      path: /ca/ca.csr
+      privatekey_path: /ca/private/ca.key
+      provider: selfsigned  
+
+  - name: Generating selfsigned certificate
+    openssl_certificate: 
+      provider: selfsigned
+      path: /ca/certs/cert.crt
+      privatekey_path: /ca/private/ca.key
+      selfsigned_not_after: "+3650d"
+      mode: 0644
+
